@@ -1,0 +1,11 @@
+; $Id: author_pane.info,v 1.1.2.5.2.1 2009/07/22 04:34:24 michellec Exp $
+name = Author Pane
+description = Gathers information from core and user related contrib modules and displays it in a template.
+core = 6.x
+
+; Information added by drupal.org packaging script on 2010-08-10
+version = "6.x-2.0-rc1"
+core = "6.x"
+project = "author_pane"
+datestamp = "1281410788"
+

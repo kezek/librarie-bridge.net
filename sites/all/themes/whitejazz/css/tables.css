@@ -1,0 +1,141 @@
+/* IE fix : width:auto*/
+.conv_tbl
+{	
+	border-style:none;
+	width:auto;
+	border-width:1px;
+	border-collapse:separate;
+}
+
+.conv_tbl td
+{
+	padding:2px;
+	border:1px solid gray;
+}
+
+.conv_tbl tr.conv_tbl_fr td
+{
+	background-color:black;
+	text-align: center;
+	color:white;
+}
+
+.conv_tbl tr.d0 td
+{
+background-color:#E8E8E8;
+}
+
+.conv_tbl tr.d1 td
+{
+	background-color:white;
+}
+
+.bidding_tbl
+{
+	border-style:solid;
+	border-width:1px;
+	text-align:center;
+}
+
+.bidding_tbl td
+{
+    padding: 2px;
+	border-right-style:solid;
+	border-right-width:1px;
+}
+
+.bidding_tbl tr.bidding_tbl_fr td
+{
+	font-weight:bold;
+	background-color:#616D7E;
+	color:white;
+}
+.sis_tbl
+{
+	border-style:none;
+	width:auto;
+	border-collapse:collapse;
+	font-size:11px;
+}
+
+.sis_tbl td
+{
+	border-style:solid;
+	border-width:1px;
+	padding:4px;
+	border-color:gray;
+}
+
+.sis_tbl th
+{
+	border-style:solid;
+	border-width:1px;
+	padding:5px 5px 19px 5px;
+	text-align : center;
+	background-image:url('/sites/default/files/sis_tbl/th.png');
+	color:#737CA1;
+}
+
+.sis_tbl col.par
+{
+	background-color:#B4CFEC;
+}
+/*.sis_tbl col.ult_col
+{
+	border-style:dotted;
+	border-width:1px;
+} */
+
+#utile
+{
+background-color:white;
+background-image:url('/sites/default/files/sis_tbl/util_bg.png');
+width: 100px;
+float:left;
+padding:7px 4px 4px 4px;
+font-family:"Palatino Linotype", "Book Antiqua", Palatino, serif;
+/*width: 150px; height: 105px; padding: 2px;*/
+position:relative;
+font-size:90%;
+filter:alpha(opacity=70);
+/*	-moz-opacity:0.7;
+	-khtml-opacity: 0.7;*/
+	opacity: 0.7;
+}
+
+#utile span
+{
+	font-size:12px;
+	text-align: center;
+	color:#153E7E;
+	cursor:move;
+}
+
+#utile a:hover
+{
+	cursor:pointer;
+}
+
+.info-table
+{
+	border:solid gray 1px;
+		width:auto;
+		margin:20px;
+		float:left;
+}
+.info-table>tbody>tr>td
+{
+	padding:4px;
+	border-left:solid gray 1px;
+
+}
+
+/*.info-table > table > tbody>tr :hover
+{
+	background-color:gray;
+}
+
+.info-table>tr:odd
+{
+	background-color:black;
+}*/

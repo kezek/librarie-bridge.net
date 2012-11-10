@@ -1,0 +1,569 @@
+<?php
+// $Id: talkinator.module,v 1.1 2009/02/20 10:59:44 ahaapaka Exp $
+
+/**
+ * @file
+ * Integrates Talkinator with Drupal. Provides a chat room.
+ */
+
+/**
+ * Minimum values for configurable settings.
+ * @return array An array of parameter names and minimum values.
+ */
+function talkinator_min() {
+  $min = array(
+    'room'   => 1,   // chars
+    'width'  => 200, // pixels
+    'height' => 250  // pixels
+  );
+  return $min;
+}
+
+/**
+ * Maximum values for configurable settings.
+ * @return array An array of parameter names and maximum values.
+ */
+function talkinator_max() {
+  $max = array(
+    'room'   => 25,  // chars
+    'width'  => 900, // pixels
+    'height' => 900  // pixels
+  );
+  return $max;
+}
+
+/**
+ * Default values for configurable settings.
+ * @return array An array of parameter names and default values.
+ */
+function talkinator_default() {
+  $default = array(
+    'filter'   => TRUE,
+    'username' => TRUE,
+    'width'    => 250, // pixels
+    'height'   => 350, // pixels
+    'color'    => '#9dd0ff',
+    'border'   => '#819dd4'
+  );
+  return $default;
+}
+
+/**
+ * Implementation of hook_perm().
+ * @return array An array of valid permissions for Talkinator module.
+ */
+function talkinator_perm() {
+  return array('access talkinator chat', 'administer talkinator chat');
+}
+
+/**
+ * Implementation of hook_help().
+ * @param $path A Drupal menu router path the help is being requested for.
+ * @param $arg An array that corresponds to the return of the arg() function.
+ * @return string Help text to be displayed.
+ */
+function talkinator_help($path, $arg) {
+  if ($path == 'admin/help#talkinator') {
+    $output = '<p>';
+    $output .= t(
+      'Talkinator module integrates <a href="@talkinator">Talkinator</a> '.
+      'with Drupal and makes it easy to add a chat room to your website. '.
+      "You can modify widget's appearance and other settings on the " .
+      '<a href="@settings">settings page</a>.',
+      array(
+        '@talkinator' => url('http://www.talkinator.com/'),
+        '@drupal' => url('http://drupal.org/'),
+        '@settings' => url('admin/settings/talkinator')
+      )
+    );
+    $output .= '</p>';
+    return $output;
+  }
+}
+
+/**
+ * Implementation of hook_menu().
+ * Registers the path 'talkinator' to be handled by talkinator_content('page')
+ * function call. Also suggests a menu item 'Talkinator'.
+ * @return array An array of menu items.
+ */
+function talkinator_menu() {
+
+  $items['admin/settings/talkinator'] = array(
+    'title' => 'Talkinator',
+    'description' => "Modify widget's appearance and other settings",
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('talkinator_settings_form'),
+    'access arguments' => array('access administration pages'),
+    'type' => MENU_NORMAL_ITEM
+  );
+
+  $items['talkinator'] = array(
+    'title' => 'Talkinator',
+    'page callback' => 'talkinator_content',
+    'page arguments' => array('page'),
+    'access arguments' => array('access talkinator chat'),
+    'type' => MENU_SUGGESTED_ITEM,
+  );
+
+  return $items;
+}
+
+/**
+ * Implementation of hook_block().
+ * @param op The operation from the URL.
+ * @param delta Offset (which block to return).
+ * @returns string Block content (HTML) to be displayed.
+ */
+function talkinator_block($op = 'list', $delta = 0) {
+  if (user_access('access talkinator chat')) {
+    if ($op == 'list') {
+      $blocks[0]['info'] = t('Talkinator');
+      return $blocks;
+    }
+    else if ($op == 'view') {
+      // Hide Talkinator block when 'talkinator' page is displayed.
+      // TODO: Is this a hack? / What is the proper way?
+      if (arg(0) != 'talkinator') {
+        $block['subject'] = t('Talkinator');
+        $block['content'] = talkinator_content('block');
+        return $block;
+      }
+    }
+  }
+}
+
+/**
+ * Generates the content: An <iframe> tag that calls the Talkinator widget.
+ * @return string An <iframe> tag that calls the Talkinator widget.
+ */
+function talkinator_content($region = 'block') {
+
+  global $user;
+
+  $room   = talkinator_get('room');
+  $server = talkinator_get('server');
+  $filter = talkinator_get('filter');
+  $width  = talkinator_get('width', $region);
+  $height = talkinator_get('height', $region);
+  $color  = drupal_substr(talkinator_get('color', $region), 1); // Remove '#'
+  $border = talkinator_get('border', $region);
+
+  $iframe['width']        = $width;
+  $iframe['height']       = $height;
+  $iframe['marginwidth']  = 0;
+  $iframe['marginheight'] = 0;
+  $iframe['scrolling']    = 'no';
+  if ($border != '') {
+    $iframe['style'] = "border: 1px solid $border";
+  }
+  $iframe['frameborder']  = 0;
+  $iframe['src']          = 'http://'. $server .'/$r?s=0&t=h'.
+                            '&w='. rawurlencode($width) .
+                            '&h='. rawurlencode($height) .
+                            '&c='. rawurlencode($color) .
+                            '&b='. rawurlencode($room);
+  if (user_is_logged_in() && talkinator_get('username')) {
+    $iframe['src'] .= '&u='. $user->name;
+  }
+  if ($filter) {
+    $iframe['src'] .= '&f=B';
+  }
+
+  $content = '<iframe';
+  foreach ($iframe as $key => $value) {
+    $content .= " $key=\"$value\"";
+  }
+  $content .= '></iframe>';
+
+  if ($region == 'block') {
+    $links['talkinator'] = array(
+      'title' => t('Full-page view'),
+      'href' => 'talkinator'
+    );
+    $content .= '<br />'. theme('links', $links);
+  }
+
+  return $content;
+}
+
+/**
+ * Generates the web form for the administrator page.
+ * @return array An associative array containing the structure of the form.
+ */
+function talkinator_settings_form() {
+
+  $min     = talkinator_min();
+  $max     = talkinator_max();
+  $default = talkinator_default();
+
+  $form['talkinator_room'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Chat room'),
+    '#default_value' => talkinator_get('room'),
+    '#size' => $max['room'],
+    '#maxlength' => $max['room'],
+    '#description' => t("The name of your Talkinator chat room. " .
+                        "For privacy's sake, pick an obscure name."),
+  );
+
+  $options = talkinator_get_servers();
+  $options = drupal_map_assoc($options);
+  $options = array_merge(array('auto' => t('Automatic')), $options);
+  $form['talkinator_server'] = array(
+    '#type' => 'select',
+    '#title' => t('Server'),
+    '#default_value' =>  variable_get('talkinator_server', 'auto'),
+    '#options' => $options,
+    '#description' => t('Select "Automatic" option to let Talkinator '.
+                        'find the least busy server.'),
+  );
+
+  /* This is a placeholder - new value is set in the _validate() function. */
+  $form['talkinator_server_auto'] = array(
+    '#type' => 'value',
+    '#value' => variable_get('talkinator_server_auto', ''),
+  );
+
+  $form['talkinator_filter'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Bad word filter'),
+    '#default_value' => talkinator_get('filter'),
+    '#description' => t('Replaces bad words with nice ones.'),
+  );
+
+  $form['talkinator_username'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Drupal usernames'),
+    '#default_value' => talkinator_get('username'),
+    '#description' => t('Enables Drupal usernames for authenticated users. '.
+                        'Otherwise Talkinator generates usernames. '.
+                        'Either way, users can change their name after entering a chat room.'),
+  );
+
+  $form['appearance_block'] = array(
+    '#type' => 'fieldset',
+    '#title' => t("Widget's appearance in a block"),
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+    '#description' => t('Modify size and colors of the Talkinator widget '.
+                        'in a block (e.g. in sidebar).'),
+  );
+
+  $form['appearance_block']['talkinator_width_block'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Width'),
+    '#default_value' => talkinator_get('width', 'block'),
+    '#size' => drupal_strlen($max['width']),
+    '#maxlength' => drupal_strlen($max['width']),
+    '#description' => t('Width in pixels (!min - !max).',
+                        array('!min' => $min['width'],
+                              '!max' => $max['width'])),
+  );
+
+  $form['appearance_block']['talkinator_height_block'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Height'),
+    '#default_value' => talkinator_get('height', 'block'),
+    '#size' => drupal_strlen($max['height']),
+    '#maxlength' => drupal_strlen($max['height']),
+    '#description' => t('Height in pixels (!min - !max).',
+                        array('!min' => $min['height'],
+                              '!max' => $max['height'])),
+  );
+
+  $form['appearance_block']['talkinator_color_block'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Color'),
+    '#default_value' => talkinator_get('color', 'block'),
+    '#size' => drupal_strlen($default['color']),
+    '#maxlength' => drupal_strlen($default['color']),
+    '#description' => t('Color as a hexadecimal value e.g. "!default".',
+                        array('!default' => $default['color'])),
+  );
+
+  $form['appearance_block']['talkinator_border_block'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Border color'),
+    '#default_value' => talkinator_get('border', 'block'),
+    '#size' => drupal_strlen($default['border']),
+    '#maxlength' => drupal_strlen($default['border']),
+    '#description' => t('Border color as a hexadecimal value e.g. '.
+                        '"!default". Leave empty to disable the border.',
+                        array('!default' => $default['border'])),
+  );
+
+  $form['appearance_page'] = array(
+    '#type' => 'fieldset',
+    '#title' => t("Widget's appearance in a page"),
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+    '#description' => t('Modify size and colors of the Talkinator widget '.
+                        'in a page (main content area).'),
+  );
+
+  $form['appearance_page']['talkinator_width_page'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Width'),
+    '#default_value' => talkinator_get('width', 'page'),
+    '#size' => drupal_strlen($max['width']),
+    '#maxlength' => drupal_strlen($max['width']),
+    '#description' => t('Width in pixels (!min - !max).',
+                        array('!min' => $min['width'],
+                              '!max' => $max['width'])),
+  );
+
+  $form['appearance_page']['talkinator_height_page'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Height'),
+    '#default_value' => talkinator_get('height', 'page'),
+    '#size' => drupal_strlen($max['height']),
+    '#maxlength' => drupal_strlen($max['height']),
+    '#description' => t('Height in pixels (!min - !max).',
+                        array('!min' => $min['height'],
+                              '!max' => $max['height'])),
+  );
+
+  $form['appearance_page']['talkinator_color_page'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Color'),
+    '#default_value' => talkinator_get('color', 'page'),
+    '#size' => drupal_strlen($default['color']),
+    '#maxlength' => drupal_strlen($default['color']),
+    '#description' => t('Color as a hexadecimal value e.g. "!default".',
+                        array('!default' => $default['color'])),
+  );
+
+  $form['appearance_page']['talkinator_border_page'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Border color'),
+    '#default_value' => talkinator_get('border', 'page'),
+    '#size' => drupal_strlen($default['border']),
+    '#maxlength' => drupal_strlen($default['border']),
+    '#description' => t('Border color as a hexadecimal value e.g. '.
+                        '"!default". Leave empty to disable the border.',
+                        array('!default' => $default['border'])),
+  );
+
+  return system_settings_form($form);
+}
+
+/**
+ * Validates the web form for the administrator page.
+ * @param $form An associative array containing the structure of the form.
+ * @param $form_state A keyed array containing the current state of the form.
+ */
+function talkinator_settings_form_validate($form, &$form_state) {
+
+  $min     = talkinator_min();
+  $max     = talkinator_max();
+  $default = talkinator_default();
+
+  $lenght = drupal_strlen($form_state['values']['talkinator_room']);
+  if ($lenght < $min['room'] ||
+      $lenght > $max['room']) {
+    $note = t('Chat room name must be !min-!max characters long.',
+              array('!min' => $min['room'],
+                    '!max' => $max['room']));
+    form_set_error('talkinator_room', $note);
+  }
+
+  $server = $form_state['values']['talkinator_server'];
+  if ($server == 'auto') {
+    // Find the least busy server and add it to the form state.
+    $server = talkinator_query_least_busy_server();
+    form_set_value($form['talkinator_server_auto'], $server, $form_state);
+  }
+
+  $width = $form_state['values']['talkinator_width_block'];
+  if (!is_numeric($width) ||
+      $width < $min['width'] ||
+      $width > $max['width']) {
+    $note = t('Width must be !min-!max pixels.',
+              array('!min' => $min['width'],
+                    '!max' => $max['width']));
+    form_set_error('talkinator_width_block', $note);
+  }
+
+  $height = $form_state['values']['talkinator_height_block'];
+  if (!is_numeric($height) ||
+      $height < $min['height'] ||
+      $height > $max['height']) {
+    $note = t('Height must be !min-!max pixels.',
+              array('!min' => $min['height'],
+                    '!max' => $max['height']));
+    form_set_error('talkinator_height_block', $note);
+  }
+
+  $color = $form_state['values']['talkinator_color_block'];
+  if (!preg_match('/^#([a-fA-F0-9]){6}$/', $color)) {
+    $note = t('Color must be a hexadecimal value e.g. "!default".',
+              array('!default' => $default['color']));
+    form_set_error('talkinator_color_block', $note);
+  }
+
+  $border = $form_state['values']['talkinator_border_block'];
+  if (!preg_match('/^(#([a-fA-F0-9]){6})?$/', $border)) {
+    $note = t('Border color must be either a hexadecimal value e.g. "!default" or empty.',
+              array('!default' => $default['border']));
+    form_set_error('talkinator_border_block', $note);
+  }
+
+  $width = $form_state['values']['talkinator_width_page'];
+  if (!is_numeric($width) ||
+      $width < $min['width'] ||
+      $width > $max['width']) {
+    $note = t('Width must be !min-!max pixels.',
+              array('!min' => $min['width'],
+                    '!max' => $max['width']));
+    form_set_error('talkinator_width_page', $note);
+  }
+
+  $height = $form_state['values']['talkinator_height_page'];
+  if (!is_numeric($height) ||
+      $height < $min['height'] ||
+      $height > $max['height']) {
+    $note = t('Height must be !min-!max pixels.',
+              array('!min' => $min['height'],
+                    '!max' => $max['height']));
+    form_set_error('talkinator_height_page', $note);
+  }
+
+  $color = $form_state['values']['talkinator_color_page'];
+  if (!preg_match('/^#([a-fA-F0-9]){6}$/', $color)) {
+    $note = t('Color must be a hexadecimal value e.g. "!default".',
+              array('!default' => $default['color']));
+    form_set_error('talkinator_color_page', $note);
+  }
+
+  $border = $form_state['values']['talkinator_border_page'];
+  if (!preg_match('/^(#([a-fA-F0-9]){6})?$/', $border)) {
+    $note = t('Border color must be either a hexadecimal value e.g. "!default" or empty.',
+              array('!default' => $default['border']));
+    form_set_error('talkinator_border_page', $note);
+  }
+
+}
+
+/**
+ * Returns value of the configurable setting identified by given "short_name"
+ * and optional "region". If user has not set any value for the setting,
+ * returns the default value.
+ * @return mixed Value of the configurable setting.
+ */
+function talkinator_get($short_name, $region = NULL) {
+
+  $default = talkinator_default();
+
+  if ($short_name == 'server') {
+    return talkinator_get_server();
+  }
+
+  if ($short_name == 'room') {
+    return talkinator_get_room();
+  }
+
+  $full_name = 'talkinator_'. $short_name;
+  if ($region) {
+    $full_name = $full_name .'_'. $region;
+  }
+
+  return variable_get($full_name, $default[$short_name]);
+}
+
+/**
+ * Returns the chat room name. If user has not specified the name, returns
+ * the default name. If default name has not been set, generates a random
+ * name and stores it as default.
+ * @return string Chat room name.
+ */
+function talkinator_get_room() {
+  $room = variable_get('talkinator_room', '');
+  if ($room == '') {
+    $room = variable_get('talkinator_room_auto', '');
+    if ($room == '') {
+      for ($i = 0; $i < 3; $i++) {
+        $room .= chr(rand(ord('A'), ord('Z')));
+      }
+      $room .= rand(100, 999);
+      variable_set('talkinator_room_auto', $room);
+    }
+  }
+  return $room;
+}
+
+/**
+ * Returns the chat server name. If the server name is 'auto', returns the
+ * automatically selected server name. If that has not been set yet, finds
+ * the least busy server by calling talkinator_query_least_busy_server().
+ * @return string Chat server name.
+ */
+function talkinator_get_server() {
+  $server = variable_get('talkinator_server', 'auto');
+  if ($server == 'auto') {
+    $server = variable_get('talkinator_server_auto', '');
+    if ($server == '') {
+      $server = talkinator_query_least_busy_server();
+      variable_set('talkinator_server_auto', $server);
+    }
+  }
+  return $server;
+}
+
+/**
+ * Returns an array of chat server names (t8r0.info - t8r1f.info).
+ * @return array An array of chat server names.
+ */
+function talkinator_get_servers() {
+  for ($i = 0x00; $i <= 0x1f; $i++) {
+    $servers[] = sprintf("t8r%x.info", $i);
+  }
+  return $servers;
+}
+
+/**
+ * Queries servlet http://www.t8r0.info/$l for the least busy chat server.
+ * If the query fails for some reason, selects a server randomly.
+ * @return string Server name (the least busy server).
+ */
+function talkinator_query_least_busy_server() {
+
+  $host = 'www.t8r0.info';
+  $port = 80;
+  $path = '/$l';
+
+  /** Servlet http://www.t8r0.info/$l returns the least busy server.
+   * Note that the response contains only hostname (no HTTP status-line,
+   * no HTTP headers) and therefore drupal_http_request() cannot be used.
+   */
+  $fp = @fsockopen($host, $port, $errno, $errstr, 15);
+
+  /* Make sure the TCP connection opened properly. */
+  if ($fp) {
+
+    /* Send the request. */
+    fwrite($fp, "GET $path HTTP/1.1\r\nHost: $host\r\n\r\n");
+
+    /* Fetch the response. */
+    $response = '';
+    while (!feof($fp) && $chunk = fread($fp, 1024)) {
+      $response .= $chunk;
+    }
+    fclose($fp);
+
+    /* Remove whitespace (if any). */
+    $address = trim($response);
+
+    /* Check that it is a domain name. */
+    $pattern = '/^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}'.
+               '[a-zA-Z0-9])?\.)+[a-zA-Z]{2,6}$/';
+    if (preg_match($pattern, $address)) {
+      return $address;
+    }
+  }
+
+  /** Something went wrong. Just select a random server
+   * within the range (t8r0.info, t8r1.info, ..., t8r1f.info).
+   */
+  return sprintf("t8r%x.info\n", rand(0x00, 0x1f));
+}

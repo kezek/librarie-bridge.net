@@ -1,0 +1,12 @@
+; $Id: talkinator.info,v 1.1 2009/02/20 10:59:44 ahaapaka Exp $
+name = Talkinator
+description = Talkinator integration module. Provides a Talkinator chat room.
+core = 6.x
+package = Chat
+
+; Information added by drupal.org packaging script on 2010-07-11
+version = "6.x-1.x-dev"
+core = "6.x"
+project = "talkinator"
+datestamp = "1278835876"
+
